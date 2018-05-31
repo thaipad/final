@@ -161,9 +161,9 @@ void *Events::query(void *val) {
 		client->get = getn;
 		client->len += recv_size;
 		
-		if (client->len > 3 &&
-			*(getn + client->len - 4) == '\r' && *(getn + client->len - 3) == '\n' &&
-		    	*(getn + client->len - 2) == '\r' && *(getn + client->len - 1) == '\n') {
+	//	if (client->len > 3 &&
+	//		*(getn + client->len - 4) == '\r' && *(getn + client->len - 3) == '\n' &&
+	//	    	*(getn + client->len - 2) == '\r' && *(getn + client->len - 1) == '\n') {
 			
 			std::string str_get = "";
 			for (auto i = 0; i < client->len; i++) { 
@@ -191,7 +191,7 @@ void *Events::query(void *val) {
 			client->get = NULL;
 			client->len = 0;
 		}
-	}	
+	//}	
 	pthread_mutex_unlock(pmtx);
 }
 
