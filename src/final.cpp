@@ -212,6 +212,11 @@ void Events::wait_and_do() {
 
 int main(int argc, char **argv) {
 	if (fork()) {
+		std::cout << "\n*************************************\n";
+		std::cout << "* WEB-server is started and demonized\n";
+//		std::cout << "* IP-address " << srv.get_ip() << ":" << srv.get_port() << std::endl;
+//		std::cout << "* Working directory \"" << srv.get_dir() << "\"" << std::endl;
+		std::cout << "*************************************\n\n";
 		return 0;
 	}
 	umask(0);
@@ -220,13 +225,6 @@ int main(int argc, char **argv) {
 	Server srv;
 	srv.set_attr(argc, argv);
 	srv.start();
-	
-	std::cout << "\n*************************************\n";
-	std::cout << "* WEB-server is started and demonized\n";
-	std::cout << "* IP-address " << srv.get_ip() << ":" << srv.get_port() << std::endl;
-	std::cout << "* Working directory \"" << srv.get_dir() << "\"" << std::endl;
-	std::cout << "* PID = " <<  getpid() << std::endl; 
-	std::cout << "*************************************\n\n";
 	
 	Events evnt(srv);
 	evnt.wait_and_do();	
