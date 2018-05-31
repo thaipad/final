@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <unistd.h>
 #include <pthread.h>
@@ -14,13 +15,29 @@
 const unsigned int 	MAX_EVENTS {32};
 const int       	DEFAULT_PORT = 80;
 
+class GetHttp {
+private:
+	std::string str_get;
+	std::string dir;
+
+public:
+	GetHttp(std::string str): str_get(str), dir("") {
+		int i = 4;
+		while(i < str.length() && str[i] != ' ' && str[i] != '?') {
+			dir += str[i++];
+		}
+	}
+	std::string get_dir(void) {return dir;}		 
+
+};
+
 class Server {
 private:
 	int sock_;
 	sockaddr_in sock_addr_;
 	std::string directory_;
 public:
-	Server():sock_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)), directory_(".") {
+	Server():sock_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)), directory_("./") {
 		sock_addr_.sin_family = AF_INET;
 		sock_addr_.sin_port = htons(DEFAULT_PORT);
  		sock_addr_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -29,7 +46,7 @@ public:
 	void start();
 	int get_sock() {return sock_;}	
 	std::string get_dir() {return directory_;}
-	//char *get_ip() {return inet_ntoa(sock_addr_.sin_addr);}
+	char *get_ip() {return inet_ntoa(sock_addr_.sin_addr);}
 	int get_port() {return ntohs(sock_addr_.sin_port);}
 };
 
@@ -73,6 +90,8 @@ class Events {
 	struct Client {
 		int fd;
 		pthread_mutex_t *mtx;
+		char *get;
+		size_t len;
 		std::string dir;
 	};
 
@@ -81,9 +100,7 @@ private:
 	int epoll_;
 	int master_socket_;
 	std::unordered_map<int, Client> clients_;	
-	
 	void new_client(void);
-
 public:
 	Events(Server srv): master_socket_(srv.get_sock()), epoll_(epoll_create1(0)), srv_(srv) {
 		epoll_event event;
@@ -103,7 +120,7 @@ void Events::new_client(void) {
 	pthread_mutex_t *mtx = new pthread_mutex_t;
 	*mtx = PTHREAD_MUTEX_INITIALIZER;
 	pthread_mutex_init(mtx, NULL);
-	clients_[slave_socket] = {slave_socket, mtx, srv_.get_dir()};
+	clients_[slave_socket] = {slave_socket, mtx, NULL, 0, srv_.get_dir()};
 
 	int flags;
 #if defined(O_NONBLOCK) 
@@ -131,28 +148,66 @@ void *Events::query(void *val) {
 	if (recv_size == 0 && errno != EAGAIN) {
 		shutdown(client->fd, SHUT_RDWR);
 		close(client->fd);
+		free(client->get);
+		client->get = NULL;
+		client->len = 0;
 	} else if (recv_size > 0) {
-		std::string name_file = "";
-		size_t i = 4;
-		while (i < recv_size && buffer[i] != ' ' && buffer[i] != '?' && buffer[i] & '\r') {
-			name_file += buffer[i++];
-		}
-		std::ifstream fin(client->dir + name_file);
-		if (fin.is_open()) {
-			std::string str_com = "";
-			while(!fin.eof()) {	
-				std::string str_send;
-				getline(fin, str_send);
-				str_com += str_send + "\r\n";
+		char *getn = (char *) malloc(client->len + recv_size + 1);
+		if (client->len > 0) {
+			memcpy(getn, client->get, client->len);
+			free(client->get);
+		}	
+		memcpy(getn + client->len, buffer, recv_size + 1);
+		client->get = getn;
+		client->len += recv_size;
+		
+	//	if (client->len > 3 &&
+	//		*(getn + client->len - 4) == '\r' && *(getn + client->len - 3) == '\n' &&
+	//	    	*(getn + client->len - 2) == '\r' && *(getn + client->len - 1) == '\n') {
+			
+			std::string str_get = "";
+			for (auto i = 0; i < client->len; i++) { 
+				str_get += *(getn + i);
 			}
-			str_com = "HTTP/1.0 200 OK\r\nContent-Length: " + std::to_string(str_com.length()) + 
-				  "\r\nContent-Type: text/html\r\n\r\n" + str_com;
-			send(client->fd, str_com.c_str(), str_com.length(), MSG_NOSIGNAL);
-		} else {
-			std::string head = "HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
-			send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
+			GetHttp query(str_get);
+			
+			std::ifstream fin(client->dir + query.get_dir());
+			if (fin.is_open()) {
+				//int cnt = 0;
+				//while(!fin.eof()) {	
+				//	std::string str;
+				//	getline(fin, str);
+				//	cnt += str.length()+1;
+				//}
+				//fin.clear();
+				//fin.seekg(0);
+				//std::string head = "HTTP/1.0 200 OK\r\nContent-Length: " + 
+				//			std::to_string(cnt) + 
+				//			"\r\nContent-Type: text/html\r\n\r\n";
+				//send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
+				std::string str_com = "";
+				while(!fin.eof()) {	
+					std::string str_send;
+					getline(fin, str_send);
+					//str_send += "\r\n";
+					str_com += str_send + "\r\n";
+					//send(client->fd, str_send.c_str(), str_send.length(), MSG_NOSIGNAL);
+				}
+				str_com = "HTTP/1.0 200 OK\r\nContent-Length: " + 
+							std::to_string(str_com.length()) + 
+							"\r\nContent-Type: text/html\r\n\r\n" + str_com;
+
+				send(client->fd, str_com.c_str(), str_com.length(), MSG_NOSIGNAL);
+
+			} else {
+				std::string head = "HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
+				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
+			}
+			free(client->get);
+			client->get = NULL;
+			client->len = 0;
 		}
-	}
+	//}	
 	pthread_mutex_unlock(pmtx);
 }
 
@@ -175,6 +230,11 @@ void Events::wait_and_do() {
 
 int main(int argc, char **argv) {
 	if (fork()) {
+		std::cout << "\n*************************************\n";
+		std::cout << "* WEB-server is started and demonized\n";
+//		std::cout << "* IP-address " << srv.get_ip() << ":" << srv.get_port() << std::endl;
+//		std::cout << "* Working directory \"" << srv.get_dir() << "\"" << std::endl;
+		std::cout << "*************************************\n\n";
 		return 0;
 	}
 	umask(0);
