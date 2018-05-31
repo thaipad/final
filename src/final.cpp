@@ -173,26 +173,34 @@ void *Events::query(void *val) {
 			
 			std::ifstream fin(client->dir + query.get_dir());
 			if (fin.is_open()) {
-				int cnt = 0;
-				while(!fin.eof()) {	
-					std::string str;
-					getline(fin, str);
-					cnt += str.length()+1;
-				}
-				fin.clear();
-				fin.seekg(0);
-				std::string head = "HTTP/1.0 200 OK\r\nContent-Length: " + 
-							std::to_string(cnt) + 
-							"\r\nContent-Type: text/html\r\n\r\n";
-				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
+				//int cnt = 0;
+				//while(!fin.eof()) {	
+				//	std::string str;
+				//	getline(fin, str);
+				//	cnt += str.length()+1;
+				//}
+				//fin.clear();
+				//fin.seekg(0);
+				//std::string head = "HTTP/1.0 200 OK\r\nContent-Length: " + 
+				//			std::to_string(cnt) + 
+				//			"\r\nContent-Type: text/html\r\n\r\n";
+				//send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
+				std::string str_com = "";
 				while(!fin.eof()) {	
 					std::string str_send;
 					getline(fin, str_send);
-					str_send += "\r\n";
-					send(client->fd, str_send.c_str(), str_send.length(), MSG_NOSIGNAL);
+					//str_send += "\r\n";
+					str_com += str_send + "\r\n";
+					//send(client->fd, str_send.c_str(), str_send.length(), MSG_NOSIGNAL);
 				}
+				str_com = "HTTP/1.0 200 OK\r\nContent-Length: " + 
+							std::to_string(str_com.length()) + 
+							"\r\nContent-Type: text/html\r\n\r\n" + str_com;
+
+				send(client->fd, str_com.c_str(), str_com.length(), MSG_NOSIGNAL);
+
 			} else {
-				std::string head = "HTTP/1.0 404 Not Found\r\n\r\n";
+				std::string head = "HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
 				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
 			}
 			free(client->get);
