@@ -169,21 +169,23 @@ void *Events::query(void *val) {
 			for (auto i = 0; i < client->len; i++) { 
 				str_get += *(getn + i);
 			}
-			//std::cout << str_get << std::endl;
 			GetHttp query(str_get);
-			std::cout << client->dir+query.get_dir() << std::endl;
 			
 			std::ifstream fin(client->dir + query.get_dir());
 			if (fin.is_open()) {
+				std::string head = "HTTP/1.0 200 OK\r\nContent-Length: " + 
+							std::to_string(fin.gcount()) + 
+							"\r\nContent-Type: text/html\r\n\r\n";
+				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
 				while(!fin.eof()) {	
 					std::string str_send;
 					getline(fin, str_send);
 					str_send += "\r\n";
-					std::cout << str_send;
 					send(client->fd, str_send.c_str(), str_send.length(), MSG_NOSIGNAL);
 				}
 			} else {
-				std::cout << "file not found" << std::endl;
+				std::string head = "HTTP/1.0 404 Not Found\r\n\r\n";
+				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
 			}
 			free(client->get);
 			client->get = NULL;
