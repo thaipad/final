@@ -173,8 +173,16 @@ void *Events::query(void *val) {
 			
 			std::ifstream fin(client->dir + query.get_dir());
 			if (fin.is_open()) {
+				int cnt = 0;
+				while(!fin.eof()) {	
+					std::string str;
+					getline(fin, str);
+					cnt += str.length()+1;
+				}
+				fin.clear();
+				fin.seekg(0);
 				std::string head = "HTTP/1.0 200 OK\r\nContent-Length: " + 
-							std::to_string(fin.gcount()) + 
+							std::to_string(cnt) + 
 							"\r\nContent-Type: text/html\r\n\r\n";
 				send(client->fd, head.c_str(), head.length(), MSG_NOSIGNAL);
 				while(!fin.eof()) {	
