@@ -2,7 +2,6 @@
 #include <fstream>
 #include <unistd.h>
 #include <pthread.h>
-//#include <stdio.h>
 #include <cstring>
 #include <unordered_map>
 #include <sys/types.h>
@@ -20,11 +19,9 @@ class GetHttp {
 private:
 	std::string str_get;
 	std::string dir;
-//	std::string par;
 
 public:
 	GetHttp(std::string str): str_get(str), dir("") {
-		
 		int i = 4;
 		while(i < str.length() && str[i] != ' ' && str[i] != '?') {
 			dir += str[i++];
@@ -214,11 +211,11 @@ void Events::wait_and_do() {
 
 
 int main(int argc, char **argv) {
-//	if (fork()) {
-//		return 0;
-//	}
-//	umask(0);
-//	setsid();
+	if (fork()) {
+		return 0;
+	}
+	umask(0);
+	setsid();
 
 	Server srv;
 	srv.set_attr(argc, argv);
